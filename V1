@@ -1,0 +1,154 @@
+// ==UserScript==
+// @name     Extract Contact
+// @version  1
+// @grant    none
+// @include  http*://*.meetup.*/*
+// @require http://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js
+// @grant	GM_xmlhttpRequest 
+// @grant	GM_info 
+// @grant GM_setValue
+// @grant GM_getValue
+// @grant GM_getResourceURL
+// ==/UserScript==
+
+try {
+  
+  var extract = extract || (function($) {
+      'use strict';
+   
+    var loadingUrlFinish = GM_getValue('loadingUrlFinish', '0');
+    var loadingProfile = GM_getValue('loadingProfile', '0');
+    //GM_setValue('loadingUrlFinish', '0');
+    //GM_setValue('loadingProfile', '0');
+    //GM_setValue('urlsMembers', JSON.stringify([]));
+    //GM_setValue('profiles', JSON.stringify([]));
+    
+    if(loadingUrlFinish == '0'){
+      var urlsMembers = []
+      var offsetMember = 0;
+
+      var pathname = window.location.href; // Returns path only
+      var path = pathname.split('?');
+
+      if(path.length > 1 ){
+
+        var path1 = path[1].split('&');
+        var offset = path1[0].split('=');
+        offsetMember = parseInt(offset[1]);    
+
+        urlsMembers = getUrlsMember();
+
+      }else {
+
+        urlsMembers = getUrlsMember();
+
+      }
+
+      var urlsStockees = JSON.parse(GM_getValue('urlsMembers', '[]'));
+
+      urlsMembers.forEach(function(element) {
+          urlsStockees.push(element);
+      });
+
+      GM_setValue('urlsMembers', JSON.stringify(urlsStockees));
+
+      var page = offsetMember + 20;
+      
+      if(page <= 20){
+      //if(page <= 280){
+        window.location.href = 'https://www.meetup.com/fr-FR/Devops-Aix-Marseille/members/?offset='+ page +'&sort=last_visited&desc=1';
+      }else {
+        GM_setValue('loadingUrlFinish', '1');
+      } 
+    }
+    
+    if(loadingProfile == '1'){
+      
+      var nom = $('.memName').text();
+      var ville = $('.locality').text();
+      var reseauSocial = '';
+      var trouveReseauSoc = 0;
+      
+      $( "a" ).each(function( index ) {
+        if(trouveReseauSoc == 0){
+          var title = $( this ).attr('title');
+          console.log(title);
+          if (title && title.indexOf("Twitter") >= 0){
+            reseauSocial = ($( this ).attr('href') );
+            trouveReseauSoc = 1;
+          }
+        }
+      });
+      
+      
+      var profilesLoaded = JSON.parse(GM_getValue('profiles', '[]'));
+      profilesLoaded.push(nom + ';' + ville + ';' + reseauSocial);
+      GM_setValue('profiles', JSON.stringify(profilesLoaded));
+      
+      var urlsStockeesFinal = JSON.parse(GM_getValue('urlsMembers', '[]'));
+      if(urlsStockeesFinal.length == 0){
+        console.log('Extraction finie');
+        console.log('profiles');
+        console.log(JSON.parse(GM_getValue('profiles', '[]')));
+        
+        GM_setValue('urlsMembers', JSON.stringify([]));
+        GM_setValue('profiles', JSON.stringify([]));
+        GM_setValue('loadingUrlFinish', '0');
+        GM_setValue('loadingProfile', '0');
+      }else {
+        GM_setValue('loadingProfile', '1');
+        GM_setValue('loadingUrlFinish', '2');
+        getProfileInfo(urlsStockeesFinal);         
+      }
+      
+    }
+    
+    loadingUrlFinish = GM_getValue('loadingUrlFinish', '0');
+    
+    if(loadingUrlFinish == '1'){
+      
+      var urlsStockeesFinal = JSON.parse(GM_getValue('urlsMembers', '[]'));
+      
+      if(urlsStockeesFinal.length == 0){
+        
+        console.log('Extraction finie');
+        console.log('profiles');
+        console.log(JSON.parse(GM_getValue('profiles', '[]')));
+        
+        GM_setValue('urlsMembers', JSON.stringify([]));
+        GM_setValue('profiles', JSON.stringify([]));
+        GM_setValue('loadingUrlFinish', '0');
+        GM_setValue('loadingProfile', '0');
+        
+      }else {      
+        GM_setValue('loadingProfile', '1');
+        GM_setValue('loadingUrlFinish', '2');
+        getProfileInfo(urlsStockeesFinal);       
+      }
+
+    }
+    
+  })(jQuery);
+}catch(e){
+	console.info(e);
+}
+
+function getProfileInfo(urlsStockeesFinal){
+  var urlProfile = urlsStockeesFinal[0];
+  urlsStockeesFinal.splice(0, 1);
+  GM_setValue('urlsMembers', JSON.stringify(urlsStockeesFinal));
+  window.location.href = urlProfile;
+}
+
+
+function getUrlsMember(){
+  
+  var urlsMembers = [];
+  
+  $('.memName').each(function(index, element){
+      	urlsMembers.push($(this).attr('href'));
+    	});
+  
+  return urlsMembers;
+  
+}
